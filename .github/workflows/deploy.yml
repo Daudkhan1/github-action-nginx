@@ -6,7 +6,7 @@ on:
 
 env:
   IMAGE_NAME: nginx-app
-  IMAGE_TAG: latest
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   deploy:
@@ -33,6 +33,7 @@ jobs:
         docker buildx create --use
         docker buildx build \
           --build-arg BUILDKIT_INLINE_CACHE=1 \
+          --no-cache \
           --cache-from=type=local,src=/tmp/.buildx-cache \
           --cache-to=type=local,dest=/tmp/.buildx-cache \
           -t ${{ secrets.DOCKERHUB_USERNAME }}/$IMAGE_NAME:$IMAGE_TAG \
