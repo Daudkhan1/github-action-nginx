@@ -50,8 +50,8 @@ jobs:
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/nginx-app:latest
 
           echo "🧹 Stopping old containers"
-          docker compose -f /home/ubuntu/github-action-nginx/docker-compose.yml down || true
+          docker-compose -f /home/ubuntu/github-action-nginx/docker-compose.yml down || true
 
           echo "🚀 Starting new containers"
-          docker compose -f /home/ubuntu/github-action-nginx/docker-compose.yml up -d --force-recreate
+          docker-compose -f /home/ubuntu/github-action-nginx/docker-compose.yml up -d --force-recreate
         EOF
