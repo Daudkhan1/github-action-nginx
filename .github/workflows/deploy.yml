@@ -1,8 +1,12 @@
-name: CI/CD to EC2 with NGINX
+name: CI/CD with NGINX and Docker Compose
 
 on:
   push:
     branches: [ main ]
+
+env:
+  IMAGE_NAME: nginx-app
+  IMAGE_TAG: latest
 
 jobs:
   deploy:
@@ -12,20 +16,42 @@ jobs:
     - name: 📥 Checkout code
       uses: actions/checkout@v3
 
-    - name: 🐳 Build and Push Docker image
-      run: |
-        docker build -t myapp:latest .
+    - name: 🧠 Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-docker-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-docker-
 
-    - name: 🔐 Setup SSH
+    - name: 🐳 Log in to Docker Hub
+      run: echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+    - name: 📦 Build and Push Docker image
+      run: |
+        export DOCKER_CLI_EXPERIMENTAL=enabled
+        docker buildx create --use
+        docker buildx build \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          --cache-from=type=local,src=/tmp/.buildx-cache \
+          --cache-to=type=local,dest=/tmp/.buildx-cache \
+          -t ${{ secrets.DOCKERHUB_USERNAME }}/$IMAGE_NAME:$IMAGE_TAG \
+          --push .
+
+    - name: 🔐 Set up SSH
       uses: webfactory/ssh-agent@v0.7.0
       with:
         ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-    - name: 🚀 Deploy on EC2 with Docker Compose
+    - name: 🚀 Deploy with Docker Compose on EC2
       run: |
-        scp -o StrictHostKeyChecking=no -r . ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/${{ secrets.EC2_USER }}/app
         ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-          cd ~/app
-          docker compose down || true
-          docker compose up -d --build
+          echo "📦 Pulling latest app image"
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/nginx-app:latest
+
+          echo "🧹 Stopping old containers"
+          docker compose -f /home/ubuntu/github-action-nginx/docker-compose.yml down || true
+
+          echo "🚀 Starting new containers"
+          docker compose -f /home/ubuntu/github-action-nginx/docker-compose.yml up -d --force-recreate
         EOF
