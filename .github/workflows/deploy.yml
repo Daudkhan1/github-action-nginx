@@ -46,6 +46,11 @@ jobs:
 
     - name: 🚀 Deploy with Docker Compose on EC2
       run: |
+        echo "🔍 Debugging image reference"
+        echo "IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/$IMAGE_NAME"
+        echo "IMAGE_TAG: $IMAGE_TAG"
+        echo "Full image reference: ${{ secrets.DOCKERHUB_USERNAME }}/$IMAGE_NAME:$IMAGE_TAG"
+        
         ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
           echo "📦 Pulling latest app image"
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/$IMAGE_NAME:$IMAGE_TAG || { echo 'Image pull failed, please check the image reference'; exit 1; }
